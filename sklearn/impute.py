@@ -107,6 +107,11 @@ class SimpleImputer(BaseEstimator, TransformerMixin):
         - If X is sparse and `missing_values=0`;
         - If X is encoded as a CSR matrix.
 
+    with_shadow_matrix : boolean, optional (default=True)
+        If True, indicators denoting missing values will be created
+        for each feature in addition to the imputed values specified
+        by `strategy`. This should only be used one non-sparse matrices.
+
     Attributes
     ----------
     statistics_ : array of shape (n_features,)
@@ -117,13 +122,20 @@ class SimpleImputer(BaseEstimator, TransformerMixin):
     Columns which only contained missing values at `fit` are discarded upon
     `transform`.
 
+    References
+    ----------
+    .. [1] `Robert Kabacoff (2015). "R in Action, Second Edition".
+        Advanced methods for missing data pg. 422.`
+
+
     """
     def __init__(self, missing_values="NaN", strategy="mean",
-                 verbose=0, copy=True):
+                 verbose=0, copy=True, with_shadow_matrix=True):
         self.missing_values = missing_values
         self.strategy = strategy
         self.verbose = verbose
         self.copy = copy
+        self.with_shadow_matrix = with_shadow_matrix
 
     def fit(self, X, y=None):
         """Fit the imputer on X.
@@ -331,6 +343,15 @@ class SimpleImputer(BaseEstimator, TransformerMixin):
             coordinates = np.where(mask.transpose())[::-1]
 
             X[coordinates] = values
+
+            # add indicators columns indicating where values were
+            # missing
+            if self.with_shadow_matrix is True:
+                X_ = np.zeros(X.shape)
+                X_[mask == 1] = 1
+                # filter out any indicators that are all zero
+                X_ = X_[:, ~np.all(X_ == 0, axis=0)]
+                X = np.append(X, X_, axis=1)
 
         return X
 
